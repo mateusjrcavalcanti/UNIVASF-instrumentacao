@@ -35,7 +35,7 @@ static char sta_pass[64];   // Senha da rede
 wifi_ap_record_t *ap_list = NULL;
 uint16_t ap_num = 0;
 
-#define WS_URL "ws://192.168.18.100" // URL do servidor WebSocket
+#define WS_URL "ws://192.168.18.100/api/ws" // URL do servidor WebSocket
 #define WS_PORT 3000                 // Porta do servidor WebSocket
 
 esp_websocket_client_handle_t websocket_client = NULL;
@@ -514,8 +514,8 @@ void ldr_task(void *pvParameter)
             websocket_send_message(message);
         }
 
-        // Adiciona um atraso de 1 segundo
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        // Adiciona um atraso de 5 segundo
+        vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
 }
 

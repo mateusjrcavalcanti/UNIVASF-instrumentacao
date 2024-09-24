@@ -20,6 +20,12 @@ nextApp.prepare().then(() => {
 
     ws.on("message", (message) => {
       console.log(`Message received: ${message}`);
+      // Broadcast message to all clients
+      clients.forEach((client) => {
+        if (client !== ws && client.readyState === WebSocket.OPEN) {
+          client.send(message.toString());
+        }
+      });
     });
 
     ws.on("close", () => {
