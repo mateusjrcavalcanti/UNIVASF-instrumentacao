@@ -12,12 +12,13 @@
     "next": "14.2.13",
     "react": "^18",
     "react-dom": "^18",
-    "socket.io": "^4.8.0"
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@types/ws": "^8.5.12",
     "eslint": "^8",
     "eslint-config-next": "14.2.13",
     "nodemon": "^3.1.7",

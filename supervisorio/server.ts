@@ -1,39 +1,51 @@
-import { createServer } from "http";
 import { parse } from "url";
 import next from "next";
-import { Server } from "socket.io";
+import { WebSocketServer, WebSocket } from "ws";
+import http from "http";
 
-const port = parseInt(process.env.PORT || "3000", 10);
-const dev = process.env.NODE_ENV !== "production";
-const app = next({ dev });
-const handle = app.getRequestHandler();
+const nextApp = next({ dev: process.env.NODE_ENV !== "production" });
+const clients: Set<WebSocket> = new Set();
 
-app.prepare().then(async () => {
-  const server = createServer((req, res) => {
-    const parsedUrl = parse(req.url!, true);
-    handle(req, res, parsedUrl);
+nextApp.prepare().then(() => {
+  const server = http.createServer((req, res) => {
+    const handle = nextApp.getRequestHandler();
+    handle(req, res);
   });
 
-  const io = new Server(server);
+  const wss = new WebSocketServer({ noServer: true });
 
-  io.on("connection", (socket) => {
+  wss.on("connection", (ws: WebSocket) => {
+    clients.add(ws);
     console.log("New client connected");
 
-    socket.on("message", (message) => {
-      console.log(`Received message: ${message}`);
-      socket.send(`Server: ${message}`);
+    ws.on("message", (message) => {
+      console.log(`Message received: ${message}`);
     });
 
-    socket.on("close", () => {
+    ws.on("close", () => {
+      clients.delete(ws);
       console.log("Client disconnected");
     });
   });
 
-  server.listen(port, () => {
-    console.log(
-      `> Server listening at http://localhost:${port} as ${
-        dev ? "development" : process.env.NODE_ENV
-      }`
-    );
+  server.on("upgrade", (req, socket, head) => {
+    const { pathname } = parse(req.url || "/", true);
+
+    // Hot module reloading
+    if (pathname === "/_next/webpack-hmr") {
+      nextApp.getUpgradeHandler()(req, socket, head);
+    }
+
+    // Upgrade to WebSocket
+    if (pathname === "/api/ws") {
+      wss.handleUpgrade(req, socket, head, (ws: WebSocket) => {
+        wss.emit("connection", ws, req);
+      });
+    }
+  });
+
+  const PORT = 3000;
+  server.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
   });
 });
