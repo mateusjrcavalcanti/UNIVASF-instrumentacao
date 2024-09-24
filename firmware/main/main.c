@@ -8,13 +8,20 @@
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_http_server.h"
+#include "driver/adc.h"
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b)) // Definindo a macro MIN
 
-static const char *TAG_STA = "wifi STA";
-static const char *TAG_AP = "wifi AP";
-static const char *TAG_HTTP = "wifi STA";
-static const char *TAG_NVS = "wifi STA";
+static const char *TAG_STA = "STA";
+static const char *TAG_AP = "AP";
+static const char *TAG_HTTP = "HTTP";
+static const char *TAG_NVS = "NVS";
+static const char *TAG_ADC = "ADC";
+
+#define ADC_CHANNEL ADC1_CHANNEL_4 // Canal ADC1 conectado ao LDR
+#define ADC_WIDTH ADC_WIDTH_BIT_12 // Resolução de 12 bits
+#define ADC_ATTEN ADC_ATTEN_DB_12
+#define RESISTOR_VALUE 1000 // Resistor de 1kΩ em série com o LDR
 
 #define AP_SSID "LDR"
 #define AP_MAX_CONN 4
@@ -252,7 +259,7 @@ esp_err_t scan_handler(httpd_req_t *req)
     httpd_resp_set_status(req, "303 See Other");
     httpd_resp_set_hdr(req, "Location", "/");
     httpd_resp_send(req, NULL, 0);
-    
+
     return ESP_OK;
 }
 
@@ -284,7 +291,7 @@ void start_webserver()
     {
         httpd_register_uri_handler(server, &get_uri);
         httpd_register_uri_handler(server, &post_uri);
-        httpd_register_uri_handler(server, &scan_uri);  // Registrar nova rota /scan
+        httpd_register_uri_handler(server, &scan_uri); // Registrar nova rota /scan
     }
 }
 
@@ -399,6 +406,31 @@ void wifi_init(void)
     start_webserver();
 }
 
+void ldr_task(void *pvParameter)
+{
+    // Configura o canal ADC
+    adc1_config_width(ADC_WIDTH);
+    adc1_config_channel_atten(ADC_CHANNEL, ADC_ATTEN);
+
+    while (1)
+    {
+        // Realiza a leitura do ADC
+        int adc_reading = adc1_get_raw(ADC_CHANNEL);
+        // Converte a leitura ADC para a tensão correspondente (V)
+        float voltage = (adc_reading / 4095.0) * 3.6; // Para uma resolução de 12 bits (0-4095) e 3.6V
+        // Calcula a resistência do LDR usando o divisor de tensão
+        float ldr_resistance = (voltage * RESISTOR_VALUE) / (3.6 - voltage);
+
+        ESP_LOGI(TAG_ADC, "Leitura ADC: %d | Tensão lida: %.2fV | Resistência LDR: %.2f Ohms",
+                 adc_reading,
+                 voltage,
+                 ldr_resistance);
+
+        // Adiciona um atraso de 1 segundo
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+}
+
 // Função principal
 void app_main(void)
 {
@@ -412,4 +444,7 @@ void app_main(void)
     ESP_ERROR_CHECK(ret);
 
     wifi_init();
+
+    // Cria a task para realizar a leitura do LDR
+    xTaskCreate(&ldr_task, "ldr_task", 2048, NULL, 5, NULL);
 }
