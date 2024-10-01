@@ -1,0 +1,8 @@
+-- CreateTable
+CREATE TABLE "Data" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "adc" INTEGER NOT NULL,
+    "voltage" REAL NOT NULL,
+    "resistance" REAL NOT NULL,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

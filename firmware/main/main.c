@@ -35,11 +35,78 @@ static char sta_pass[64];   // Senha da rede
 wifi_ap_record_t *ap_list = NULL;
 uint16_t ap_num = 0;
 
-#define WS_URL "ws://192.168.18.100/api/ws" // URL do servidor WebSocket
-#define WS_PORT 3000                 // Porta do servidor WebSocket
+char ws_url[100] = "ws://192.168.18.100/api/ws"; // URL do servidor WebSocket como variável modificável
+int ws_port = 3000;                              // Porta do servidor WebSocket
 
 esp_websocket_client_handle_t websocket_client = NULL;
 SemaphoreHandle_t websocket_mutex = NULL;
+
+// Salvar a URL e a porta do WebSocket na NVS
+void save_websocket_config(const char *url, int port)
+{
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open("storage", NVS_READWRITE, &nvs_handle);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG_NVS, "Error opening NVS handle!");
+        return;
+    }
+
+    // Salvar a URL do WebSocket
+    err = nvs_set_str(nvs_handle, "ws_url", url);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG_NVS, "Error setting WebSocket URL in NVS");
+        nvs_close(nvs_handle);
+        return;
+    }
+
+    // Salvar a porta do WebSocket
+    err = nvs_set_i32(nvs_handle, "ws_port", port);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG_NVS, "Error setting WebSocket port in NVS");
+        nvs_close(nvs_handle);
+        return;
+    }
+
+    nvs_commit(nvs_handle);
+    nvs_close(nvs_handle);
+}
+
+// Carregar a URL e a porta do WebSocket da NVS
+bool load_websocket_config(char *url, size_t url_len, int *port)
+{
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open("storage", NVS_READONLY, &nvs_handle);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG_NVS, "Error opening NVS handle");
+        return false;
+    }
+
+    // Carregar a URL do WebSocket
+    size_t url_size = url_len;
+    err = nvs_get_str(nvs_handle, "ws_url", url, &url_size);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG_NVS, "Error getting WebSocket URL from NVS");
+        nvs_close(nvs_handle);
+        return false;
+    }
+
+    // Carregar a porta do WebSocket
+    err = nvs_get_i32(nvs_handle, "ws_port", (int32_t *)port);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG_NVS, "Error getting WebSocket port from NVS");
+        nvs_close(nvs_handle);
+        return false;
+    }
+
+    nvs_close(nvs_handle);
+    return true;
+}
 
 // Manipulador de eventos do WebSocket
 void websocket_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
@@ -68,9 +135,22 @@ void websocket_event_handler(void *handler_args, esp_event_base_t base, int32_t 
 // Inicializa o WebSocket
 void websocket_start()
 {
+    // Tentar carregar ws_url e ws_port da NVS
+    if (!load_websocket_config(ws_url, sizeof(ws_url), &ws_port))
+    {
+        // Se não houver valores na NVS, usar valores padrão
+        strcpy(ws_url, "ws://192.168.18.100/api/ws");
+        ws_port = 3000;
+        ESP_LOGI(TAG_WEBSOCKET, "Using default WebSocket config: URL=%s, Port=%d", ws_url, ws_port);
+    }
+    else
+    {
+        ESP_LOGI(TAG_WEBSOCKET, "Loaded WebSocket config from NVS: URL=%s, Port=%d", ws_url, ws_port);
+    }
+
     esp_websocket_client_config_t websocket_cfg = {
-        .uri = WS_URL,
-        .port = WS_PORT,
+        .uri = ws_url,
+        .port = ws_port,
         // .skip_cert_common_name_check = true,
     };
 
@@ -248,13 +328,18 @@ esp_err_t get_handler(httpd_req_t *req)
                     "</select><br><br>"
                     "<label for=\"password\">Password:</label><br>"
                     "<input type=\"password\" name=\"password\"><br><br>"
+                    "<label for=\"ws_url\">WebSocket URL:</label><br>"
+                    "<input type=\"text\" name=\"ws_url\" value=\"%s\"><br><br>" // Campo para URL do WebSocket
+                    "<label for=\"ws_port\">WebSocket Port:</label><br>"
+                    "<input type=\"number\" name=\"ws_port\" value=\"%d\"><br><br>" // Campo para Porta do WebSocket
                     "<input type=\"submit\" value=\"Submit\">"
                     "</form>"
                     "<br>"
                     "<form action=\"/scan\" method=\"post\">"
                     "<input type=\"submit\" value=\"Update WiFi List\">"
                     "</form>"
-                    "</body></html>");
+                    "</body></html>",
+                    ws_url, ws_port); // Inserindo valores atuais de ws_url e ws_port
 
     // Verifica se a string foi truncada
     if (len >= sizeof(response))
@@ -295,20 +380,50 @@ esp_err_t post_handler(httpd_req_t *req)
             return ESP_FAIL;
         }
 
+        // Extração dos parâmetros de ssid, password, ws_url, e ws_port
         char *ssid_ptr = strstr(decoded_buf, "ssid=") + 5;
         char *password_ptr = strstr(decoded_buf, "password=") + 9;
+        char *ws_url_ptr = strstr(decoded_buf, "ws_url=") + 7;
+        char *ws_port_ptr = strstr(decoded_buf, "ws_port=") + 8;
 
+        // Tratar separadores '&'
         char *ssid_end = strchr(ssid_ptr, '&');
         if (ssid_end)
         {
             *ssid_end = 0;
         }
 
+        char *password_end = strchr(password_ptr, '&');
+        if (password_end)
+        {
+            *password_end = 0;
+        }
+
+        char *ws_url_end = strchr(ws_url_ptr, '&');
+        if (ws_url_end)
+        {
+            *ws_url_end = 0;
+        }
+
+        char *ws_port_end = strchr(ws_port_ptr, '&');
+        if (ws_port_end)
+        {
+            *ws_port_end = 0;
+        }
+
+        // Atualiza as variáveis globais
         strcpy(sta_ssid, ssid_ptr);
         strcpy(sta_pass, password_ptr);
+        strcpy(ws_url, ws_url_ptr);  // Atualiza a URL do WebSocket
+        ws_port = atoi(ws_port_ptr); // Converte e atualiza a porta do WebSocket
 
-        save_sta_credentials(sta_ssid, sta_pass); // Salvando as credenciais na NVS
+        // Salvar as credenciais de Wi-Fi na NVS
+        save_sta_credentials(sta_ssid, sta_pass);
 
+        // Salvar a URL e Porta do WebSocket na NVS
+        save_websocket_config(ws_url, ws_port);
+
+        // Configura o Wi-Fi com as novas credenciais
         wifi_config_t wifi_sta_config = {
             .sta = {
                 .ssid = "",
@@ -325,7 +440,7 @@ esp_err_t post_handler(httpd_req_t *req)
         free(decoded_buf); // Liberar memória alocada para decodificação
     }
 
-    ESP_LOGI(TAG_HTTP, "Received SSID: %s, Password: %s", sta_ssid, sta_pass);
+    ESP_LOGI(TAG_HTTP, "Received SSID: %s, Password: %s, WebSocket URL: %s, WebSocket Port: %d", sta_ssid, sta_pass, ws_url, ws_port);
 
     // Redireciona de volta para a página principal após salvar as credenciais
     httpd_resp_set_status(req, "303 See Other");
@@ -508,14 +623,14 @@ void ldr_task(void *pvParameter)
         {
             char message[128];
             snprintf(message, sizeof(message),
-                     "Leitura ADC: %d | Tensão lida: %.2fV | Resistência LDR: %.2f Ohms",
+                     "{\"adc_reading\": %d, \"voltage\": %.2f, \"ldr_resistance\": %.2f}",
                      adc_reading, voltage, ldr_resistance);
 
             websocket_send_message(message);
         }
 
         // Adiciona um atraso de 5 segundo
-        vTaskDelay(5000 / portTICK_PERIOD_MS);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }
 
@@ -534,5 +649,5 @@ void app_main(void)
     wifi_init();
 
     // Cria a task para realizar a leitura do LDR
-    xTaskCreate(&ldr_task, "ldr_task", 2048, NULL, 5, NULL);
+    xTaskCreate(&ldr_task, "ldr_task", 4096, NULL, 5, NULL);
 }

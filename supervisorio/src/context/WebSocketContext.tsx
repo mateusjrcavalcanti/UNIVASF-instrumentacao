@@ -1,9 +1,19 @@
 "use client";
 import React, { createContext, useContext, useEffect, useState } from "react";
 
+export interface dataType {
+  adc: number;
+  adcPercent: number;
+  voltage: number;
+  resistance: number;
+  pwm: number;
+  pwmPercent: number;
+  date: Date;
+}
 interface WebSocketContextType {
   sendMessage: (message: string) => void;
   messages: string[];
+  data: dataType[];
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(
@@ -15,6 +25,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [webSocket, setWebSocket] = useState<WebSocket | null>(null);
   const [messages, setMessages] = useState<string[]>([]);
+  const [data, setData] = useState<dataType[]>([]);
 
   useEffect(() => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -27,6 +38,19 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
     ws.onmessage = (event) => {
       if (event.data === "connection established") return;
       setMessages((prevMessages) => [...prevMessages, event.data]);
+      const { adc_reading, voltage, ldr_resistance } = JSON.parse(event.data);
+      setData((prevData) => [
+        ...prevData,
+        {
+          adc: adc_reading,
+          pwm: 0,
+          voltage,
+          resistance: Number(ldr_resistance.toFixed(2)),
+          adcPercent: Number(((100 * adc_reading) / 4095).toFixed(2)),
+          pwmPercent: Number(((100 * 0) / 4095).toFixed(2)),
+          date: new Date(),
+        },
+      ]);
     };
 
     ws.onerror = (error) => {
@@ -58,7 +82,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   return (
-    <WebSocketContext.Provider value={{ sendMessage, messages }}>
+    <WebSocketContext.Provider value={{ sendMessage, messages, data }}>
       {children}
     </WebSocketContext.Provider>
   );

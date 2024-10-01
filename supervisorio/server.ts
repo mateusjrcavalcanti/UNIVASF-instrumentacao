@@ -2,6 +2,7 @@ import { parse } from "url";
 import next from "next";
 import { WebSocketServer, WebSocket } from "ws";
 import http from "http";
+import prisma from "@/lib/db";
 
 const nextApp = next({ dev: process.env.NODE_ENV !== "production" });
 const clients: Set<WebSocket> = new Set();
@@ -18,14 +19,47 @@ nextApp.prepare().then(() => {
     clients.add(ws);
     console.log("New client connected");
 
-    ws.on("message", (message) => {
-      console.log(`Message received: ${message}`);
+    ws.on("message", async (message) => {
+      // Tenta converter a mensagem em um objeto JSON
+      let messageObj;
+      try {
+        messageObj = JSON.parse(message.toString());
+      } catch (error) {
+        console.error("Mensagem inválida, não é um JSON válido.", error);
+        return; // Sai da função se a mensagem não for um JSON válido
+      }
+
+      // Verifica se todas as propriedades esperadas estão presentes
+      const expectedProperties = ["adc_reading", "voltage", "ldr_resistance"];
+      const hasAllProperties = expectedProperties.every(
+        (prop) => prop in messageObj
+      );
+
+      const {adc_reading, voltage, ldr_resistance} = messageObj;
+
+      if (!hasAllProperties) {
+        console.error(
+          "A mensagem não contém todas as propriedades necessárias."
+        );
+        return; // Sai da função se a mensagem não tiver as propriedades esperadas
+      }
+
+      await prisma.data.create({
+        data:{
+          voltage: voltage,
+          adc: adc_reading,
+          resistance: ldr_resistance
+        }
+      })
+
       // Broadcast message to all clients
       clients.forEach((client) => {
         if (client !== ws && client.readyState === WebSocket.OPEN) {
           client.send(message.toString());
         }
       });
+
+      console.log(`Message received: ${message}`);
     });
 
     ws.on("close", () => {

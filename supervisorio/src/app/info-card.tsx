@@ -1,7 +1,7 @@
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
-export function Card({
+export function InfoCard({
   title,
   value,
   range,
@@ -10,7 +10,7 @@ export function Card({
   color = "bg-green-400",
 }: {
   title: string;
-  value: number | string;
+  value: number;
   unity?: string;
   range?: {
     max: number;
@@ -45,7 +45,10 @@ export function Card({
         {range && (
           <>
             <div className="relative h-2 bg-gray-200 rounded w-full">
-              <Progress value={33} indicatorColor={color} />
+              <Progress
+                value={(100 * value) / range.max}
+                indicatorColor={color}
+              />
             </div>
             <div className="flex mt-2 items-center text-sm justify-center">
               <span className="text-gray-600">{`${range.min} - ${range.max}`}</span>
