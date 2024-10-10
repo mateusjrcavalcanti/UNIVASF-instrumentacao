@@ -310,7 +310,7 @@ void scan_wifi()
 // Manipulador para a rota /
 esp_err_t get_handler(httpd_req_t *req)
 {
-    char response[1024];
+    char response[2048];
     int len = snprintf(response, sizeof(response),
                        "<html><body>"
                        "<h2>Configure WiFi</h2>"
@@ -435,6 +435,7 @@ esp_err_t post_handler(httpd_req_t *req)
         s_retry_num = 0;
         esp_wifi_disconnect();
         ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_sta_config));
+        ESP_LOGI(TAG_STA, "Conectando ao STA, SSID: %s, PASS: %s", sta_ssid, sta_pass);
         esp_wifi_connect();
 
         free(decoded_buf); // Liberar memória alocada para decodificação
@@ -505,6 +506,7 @@ void wifi_event_handler(void *arg, esp_event_base_t event_base,
     {
     case WIFI_EVENT_STA_START:
         // conecta ao sta
+        ESP_LOGI(TAG_STA, "Conectando ao STA, SSID: %s, PASS: %s", sta_ssid, sta_pass);
         esp_wifi_connect();
         break;
 
@@ -513,6 +515,7 @@ void wifi_event_handler(void *arg, esp_event_base_t event_base,
         {
             ESP_LOGI(TAG_STA, "STA disconnected, reconnecting... Attempt %d/%d", s_retry_num + 1, STA_MAX_RETRY);
             esp_wifi_connect();
+        ESP_LOGI(TAG_STA, "Conectando ao STA, SSID: %s, PASS: %s", sta_ssid, sta_pass);
             s_retry_num++;
         }
         else
@@ -583,7 +586,6 @@ void wifi_init(void)
         .ap = {
             .ssid = AP_SSID,
             .ssid_len = strlen(AP_SSID),
-            // .channel = AP_CHANNEL,
             .max_connection = AP_MAX_CONN,
             .authmode = WIFI_AUTH_OPEN,
             .pmf_cfg = {
@@ -614,10 +616,10 @@ void ldr_task(void *pvParameter)
         // Calcula a resistência do LDR usando o divisor de tensão
         float ldr_resistance = (voltage * RESISTOR_VALUE) / (3.6 - voltage);
 
-        ESP_LOGI(TAG_ADC, "Leitura ADC: %d | Tensão lida: %.2fV | Resistência LDR: %.2f Ohms",
-                 adc_reading,
-                 voltage,
-                 ldr_resistance);
+        // ESP_LOGI(TAG_ADC, "Leitura ADC: %d | Tensão lida: %.2fV | Resistência LDR: %.2f Ohms",
+        //          adc_reading,
+        //          voltage,
+        //          ldr_resistance);
 
         if (esp_websocket_client_is_connected(websocket_client))
         {

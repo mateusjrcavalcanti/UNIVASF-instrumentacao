@@ -29,7 +29,7 @@ export function Menu() {
             href={item.path}
             className={`flex items-center justify-start w-full p-4 my-2 font-thin uppercase transition-colors duration-200 ${
               pathname === item.path
-                ? "text-yellow-400 border-r-4 border-yellow-400 bg-gradient-to-r from-white to-blue-100 dark:from-gray-700 dark:to-gray-800"
+                ? "text-yellow-400 border-r-4 border-yellow-400 bg-gradient-to-r from-white to-yellow-100 dark:from-gray-700 dark:to-gray-800"
                 : "text-gray-500 dark:text-gray-200 hover:text-yellow-400"
             }`}
           >

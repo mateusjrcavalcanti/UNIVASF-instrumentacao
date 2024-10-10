@@ -26,7 +26,6 @@ import type { dataType } from "@/context/WebSocketContext";
 const formattedData = (data: dataType[]) =>
   data.map((item) => ({
     ...item,
-    // formattedDate: format(item.date, "dd/MM/yyyy HH:mm:ss"),
     formattedDate: format(item.date, "HH:mm:ss"),
   }));
 
@@ -69,19 +68,18 @@ export function Chart({ data }: { data: dataType[] }) {
               <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
               <Line
                 dataKey="adc"
-                type="monotone"
+                type="linear"
                 stroke={chartConfig.adc.color}
                 strokeWidth={2}
                 dot={false}
               />
               <Line
                 dataKey="voltage"
-                type="monotone"
+                type="linear"
                 stroke={chartConfig.voltage.color}
                 strokeWidth={2}
                 dot={false}
               />
-              {/* Add resistance line if necessary */}
               {/* <Line
                 dataKey="resistance"
                 type="monotone"

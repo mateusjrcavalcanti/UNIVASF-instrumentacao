@@ -1,0 +1,6 @@
+{
+    "watch": ["server.ts", "src"],
+    "ext": "js,ts,tsx",
+    "exec": "ts-node --project tsconfig.server.json --require tsconfig-paths/register server.ts"
+  }
+  
