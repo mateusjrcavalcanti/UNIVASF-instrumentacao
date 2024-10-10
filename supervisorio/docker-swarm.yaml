@@ -1,0 +1,34 @@
+version: "3.8"
+services:
+  ldr:
+    image: mateusjrcavalcanti/ldr:latest
+    networks:
+      - traefik_network
+    volumes:
+      - ldr:/app/data
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1024M
+      labels:
+        - traefik.enable=true
+        - "traefik.http.routers.ldr.rule=Host(`ldr.unibus.tech`)"
+        - traefik.http.routers.ldr.tls.certresolver=le
+        - traefik.http.routers.ldr.entrypoints=websecure
+        - traefik.http.routers.ldr.tls=true
+        - traefik.http.routers.ldr.service=ldr
+        - traefik.http.services.ldr.loadbalancer.server.port=3000
+
+volumes:
+  ldr:
+    external: true
+
+networks:
+  traefik_network:
+    external: true
