@@ -6,4 +6,5 @@ COPY package-lock.json .
 RUN npm install
 COPY . .
 COPY .env.example .env
-CMD npm run build && npm run start
+RUN npm run build
+CMD npm run start
