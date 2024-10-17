@@ -1,0 +1,16 @@
+FROM node:20
+
+WORKDIR /app
+
+# Copiar apenas os arquivos de dependências para aproveitar o cache
+COPY package*.json ./
+RUN npm install --production
+
+# Copar o restante dos arquivos da aplicação
+COPY . .
+
+# Build do projeto
+RUN npm run build
+
+# Rodar a aplicação
+CMD ["npm", "run", "start"]
