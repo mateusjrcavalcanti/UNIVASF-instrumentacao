@@ -2,7 +2,7 @@ import { parse } from "url";
 import next from "next";
 import { WebSocketServer, WebSocket } from "ws";
 import http from "http";
-import prisma from "@/lib/db";
+import prisma from "./src/lib/db";
 
 const nextApp = next({ dev: process.env.NODE_ENV !== "production" });
 const clients: Set<WebSocket> = new Set();
@@ -35,7 +35,7 @@ nextApp.prepare().then(() => {
         (prop) => prop in messageObj
       );
 
-      const {adc_reading, voltage, ldr_resistance} = messageObj;
+      const { adc_reading, voltage, ldr_resistance } = messageObj;
 
       if (!hasAllProperties) {
         console.error(
@@ -45,12 +45,12 @@ nextApp.prepare().then(() => {
       }
 
       await prisma.data.create({
-        data:{
+        data: {
           voltage: voltage,
           adc: adc_reading,
-          resistance: ldr_resistance
-        }
-      })
+          resistance: ldr_resistance,
+        },
+      });
 
       // Broadcast message to all clients
       clients.forEach((client) => {

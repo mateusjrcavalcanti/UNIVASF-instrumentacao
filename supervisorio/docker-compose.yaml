@@ -1,0 +1,27 @@
+version: "3.8"
+services:
+  ldr:
+    image: mateusjrcavalcanti/ldr:latest
+    environment:
+      - DATABASE_URL=file:../data/dev.db
+      - NODE_ENV=production
+    networks:
+      - traefik_network
+    volumes:
+      - ldr:/app/data
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.ldr.rule=Host(`ldr.unibus.tech`)"
+      - traefik.http.routers.ldr.tls.certresolver=le
+      - traefik.http.routers.ldr.entrypoints=websecure
+      - traefik.http.routers.ldr.tls=true
+      - traefik.http.routers.ldr.service=ldr
+      - traefik.http.services.ldr.loadbalancer.server.port=3000
+
+volumes:
+  ldr:
+    external: true
+
+networks:
+  traefik_network:
+    external: true
