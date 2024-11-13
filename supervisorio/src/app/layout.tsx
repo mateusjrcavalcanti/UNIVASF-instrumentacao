@@ -32,7 +32,7 @@ export default function RootLayout({
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >
-          <main className="relative h-screen overflow bg-gray-100 dark:bg-gray-800 rounded-2xl">
+          <main className="relative h-screen bg-gray-100 dark:bg-gray-800 rounded-2xl">
             <div className="flex items-start">
               <div className="relative hidden h-screen my-4 ml-4 shadow-lg lg:block w-80">
                 <div className="h-full bg-white rounded-2xl dark:bg-gray-700">
