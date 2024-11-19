@@ -10,6 +10,7 @@ datasource db {
 model Data {
   id         Int      @id @default(autoincrement())
   adc        Int
+  pwm        Int
   voltage    Float
   resistance Float
   createdAt  DateTime @default(now())

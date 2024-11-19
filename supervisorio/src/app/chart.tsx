@@ -1,11 +1,4 @@
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  XAxis,
-  ResponsiveContainer,
-  YAxis,
-} from "recharts";
+import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import {
   Card,
   CardContent,
@@ -57,38 +50,36 @@ export function Chart({ data }: { data: dataType[] }) {
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="h-96 w-full">
-          <ResponsiveContainer>
-            <LineChart
-              data={formattedData(data)}
-              margin={{ left: 12, right: 12 }}
-            >
-              <CartesianGrid vertical={false} />
-              <XAxis dataKey="formattedDate" />
-              <YAxis />
-              <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
-              <Line
-                dataKey="adc"
-                type="linear"
-                stroke={chartConfig.adc.color}
-                strokeWidth={2}
-                dot={false}
-              />
-              <Line
-                dataKey="voltage"
-                type="linear"
-                stroke={chartConfig.voltage.color}
-                strokeWidth={2}
-                dot={false}
-              />
-              {/* <Line
+          <LineChart
+            data={formattedData(data)}
+            margin={{ left: 12, right: 12 }}
+          >
+            <CartesianGrid vertical={false} />
+            <XAxis dataKey="formattedDate" />
+            <YAxis />
+            <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+            <Line
+              dataKey="adc"
+              type="linear"
+              stroke={chartConfig.adc.color}
+              strokeWidth={2}
+              dot={false}
+            />
+            <Line
+              dataKey="voltage"
+              type="linear"
+              stroke={chartConfig.voltage.color}
+              strokeWidth={2}
+              dot={false}
+            />
+            {/* <Line
                 dataKey="resistance"
                 type="monotone"
                 stroke={chartConfig.resistance.color}
                 strokeWidth={2}
                 dot={false}
               /> */}
-            </LineChart>
-          </ResponsiveContainer>
+          </LineChart>
         </ChartContainer>
       </CardContent>
       <CardFooter></CardFooter>

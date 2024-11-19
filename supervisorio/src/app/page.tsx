@@ -61,7 +61,7 @@ export default function Home() {
           title={"PWM"}
           value={pwm}
           Icon={FaWaveSquare}
-          range={{ min: 0, max: 4095 }}
+          range={{ min: 0, max: 8192 }}
           color="bg-blue-500"
         />
 
