@@ -9,6 +9,8 @@
 #include "esp_log.h"
 #include "esp_http_server.h"
 #include "driver/adc.h"
+#include "driver/ledc.h"
+#include "esp_adc_cal.h"
 #include "esp_websocket_client.h"
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b)) // Definindo a macro MIN
@@ -21,9 +23,16 @@ static const char *TAG_ADC = "ADC";
 static const char *TAG_WEBSOCKET = "WEBSOCKET";
 
 #define ADC_CHANNEL ADC1_CHANNEL_4 // Canal ADC1 conectado ao LDR
-#define ADC_WIDTH ADC_WIDTH_BIT_12 // Resolução de 12 bits
+#define ADC_WIDTH ADC_WIDTH_BIT_12
 #define ADC_ATTEN ADC_ATTEN_DB_12
 #define RESISTOR_VALUE 1000 // Resistor de 1kΩ em série com o LDR
+
+#define LED_PIN 15 // Porta D15 para o LED
+#define LEDC_CHANNEL LEDC_CHANNEL_0
+#define LEDC_TIMER LEDC_TIMER_0
+#define LEDC_MODE LEDC_LOW_SPEED_MODE
+#define LEDC_FREQ_HZ 5000          // Frequência do PWM em Hz
+#define LEDC_RES LEDC_TIMER_13_BIT // Resolução de 13 bits
 
 #define AP_SSID "LDR"
 #define AP_MAX_CONN 4
@@ -139,7 +148,7 @@ void websocket_start()
     if (!load_websocket_config(ws_url, sizeof(ws_url), &ws_port))
     {
         // Se não houver valores na NVS, usar valores padrão
-        strcpy(ws_url, "ws://192.168.18.100/api/ws");
+        strcpy(ws_url, "ws://192.168.18.50/api/ws");
         ws_port = 3000;
         ESP_LOGI(TAG_WEBSOCKET, "Using default WebSocket config: URL=%s, Port=%d", ws_url, ws_port);
     }
@@ -291,6 +300,29 @@ bool load_wifi_credentials(char *ssid, size_t ssid_len, char *password, size_t p
     }
     ESP_LOGE(TAG_STA, "Failed to load credentials from NVS");
     return false;
+}
+
+void init_pwm(void)
+{
+    // Configuração do timer do PWM
+    ledc_timer_config_t ledc_timer = {
+        .speed_mode = LEDC_MODE,
+        .timer_num = LEDC_TIMER,
+        .duty_resolution = LEDC_RES,
+        .freq_hz = LEDC_FREQ_HZ,
+        .clk_cfg = LEDC_AUTO_CLK};
+    ledc_timer_config(&ledc_timer);
+
+    // Configuração do canal de PWM
+    ledc_channel_config_t ledc_channel = {
+        .speed_mode = LEDC_MODE,
+        .channel = LEDC_CHANNEL,
+        .timer_sel = LEDC_TIMER,
+        .intr_type = LEDC_INTR_DISABLE,
+        .gpio_num = LED_PIN,
+        .duty = 0, // Inicia com o LED apagado
+        .hpoint = 0};
+    ledc_channel_config(&ledc_channel);
 }
 
 void scan_wifi()
@@ -515,7 +547,7 @@ void wifi_event_handler(void *arg, esp_event_base_t event_base,
         {
             ESP_LOGI(TAG_STA, "STA disconnected, reconnecting... Attempt %d/%d", s_retry_num + 1, STA_MAX_RETRY);
             esp_wifi_connect();
-        ESP_LOGI(TAG_STA, "Conectando ao STA, SSID: %s, PASS: %s", sta_ssid, sta_pass);
+            ESP_LOGI(TAG_STA, "Conectando ao STA, SSID: %s, PASS: %s", sta_ssid, sta_pass);
             s_retry_num++;
         }
         else
@@ -601,32 +633,46 @@ void wifi_init(void)
     start_webserver();
 }
 
-void ldr_task(void *pvParameter)
+void ldr_pwm_task(void *pvParameter)
 {
+    init_pwm();
     // Configura o canal ADC
     adc1_config_width(ADC_WIDTH);
     adc1_config_channel_atten(ADC_CHANNEL, ADC_ATTEN);
+
+    int ADC_MIN = 0;        // Valor mínimo do ADC (modificável)
+    int ADC_MAX = 500;     // Valor máximo do ADC (modificável)
 
     while (1)
     {
         // Realiza a leitura do ADC
         int adc_reading = adc1_get_raw(ADC_CHANNEL);
         // Converte a leitura ADC para a tensão correspondente (V)
-        float voltage = (adc_reading / 4095.0) * 3.6; // Para uma resolução de 12 bits (0-4095) e 3.6V
+        float voltage = (adc_reading / 4096.0) * 3.3; // Para uma resolução de 12 bits (0-4096) e 3.6V
         // Calcula a resistência do LDR usando o divisor de tensão
-        float ldr_resistance = (voltage * RESISTOR_VALUE) / (3.6 - voltage);
+        float ldr_resistance = (voltage * RESISTOR_VALUE) / (3.3 - voltage);
+        // Mapeamento inverso do ADC para o intervalo do PWM
+        int duty_cycle = 8191 - ((adc_reading - ADC_MIN) * 8191) / (ADC_MAX - ADC_MIN);
+        // Certificar-se de que duty_cycle esteja dentro dos limites do PWM
+        if (duty_cycle < 0) duty_cycle = 0;
+        if (duty_cycle > 8191) duty_cycle = 8191;
 
-        // ESP_LOGI(TAG_ADC, "Leitura ADC: %d | Tensão lida: %.2fV | Resistência LDR: %.2f Ohms",
-        //          adc_reading,
-        //          voltage,
-        //          ldr_resistance);
+        // Atualiza o duty cycle do PWM
+        ledc_set_duty(LEDC_MODE, LEDC_CHANNEL, duty_cycle);
+        ledc_update_duty(LEDC_MODE, LEDC_CHANNEL);
+
+        //ESP_LOGI(TAG_ADC, "Leitura ADC: %d | Tensão lida: %.2fV | Resistência LDR: %.2f Ohms | DutyCycle: %d",
+          //       adc_reading,
+            //     voltage,
+              //   ldr_resistance,
+                // duty_cycle);
 
         if (esp_websocket_client_is_connected(websocket_client))
         {
             char message[128];
             snprintf(message, sizeof(message),
-                     "{\"adc_reading\": %d, \"voltage\": %.2f, \"ldr_resistance\": %.2f}",
-                     adc_reading, voltage, ldr_resistance);
+                     "{\"adc_reading\": %d, \"voltage\": %.2f, \"ldr_resistance\": %.2f, \"pwm\": %d}",
+                     adc_reading, voltage, ldr_resistance, duty_cycle);
 
             websocket_send_message(message);
         }
@@ -651,5 +697,5 @@ void app_main(void)
     wifi_init();
 
     // Cria a task para realizar a leitura do LDR
-    xTaskCreate(&ldr_task, "ldr_task", 4096, NULL, 5, NULL);
+    xTaskCreate(&ldr_pwm_task, "ldr_pwm_task", 4096, NULL, 5, NULL);
 }
