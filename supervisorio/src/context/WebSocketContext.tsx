@@ -38,16 +38,18 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
     ws.onmessage = (event) => {
       if (event.data === "connection established") return;
       setMessages((prevMessages) => [...prevMessages, event.data]);
-      const { adc_reading, voltage, ldr_resistance } = JSON.parse(event.data);
+      const { adc_reading, voltage, ldr_resistance, pwm } = JSON.parse(
+        event.data
+      );
       setData((prevData) => [
         ...prevData,
         {
           adc: adc_reading,
-          pwm: 0,
+          pwm,
           voltage,
           resistance: Number(ldr_resistance.toFixed(2)),
           adcPercent: Number(((100 * adc_reading) / 4095).toFixed(2)),
-          pwmPercent: Number(((100 * 0) / 4095).toFixed(2)),
+          pwmPercent: Number(((100 * pwm) / 8192).toFixed(2)),
           date: new Date(),
         },
       ]);

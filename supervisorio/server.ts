@@ -35,7 +35,7 @@ nextApp.prepare().then(() => {
         (prop) => prop in messageObj
       );
 
-      const { adc_reading, voltage, ldr_resistance } = messageObj;
+      const { adc_reading, voltage, ldr_resistance, pwm } = messageObj;
 
       if (!hasAllProperties) {
         console.error(
@@ -49,6 +49,7 @@ nextApp.prepare().then(() => {
           voltage: voltage,
           adc: adc_reading,
           resistance: ldr_resistance,
+          pwm,
         },
       });
 
@@ -86,6 +87,6 @@ nextApp.prepare().then(() => {
 
   const PORT = 3000;
   server.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+    console.log(`Server is running on ${PORT}`);
   });
 });
