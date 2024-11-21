@@ -16,11 +16,12 @@ import {
 import { format } from "date-fns";
 import type { dataType } from "@/context/WebSocketContext";
 
-const formattedData = (data: dataType[]) =>
-  data.map((item) => ({
+const formattedData = (data: dataType[]) => {
+  return data.map((item) => ({
     ...item,
-    formattedDate: format(item.date, "HH:mm:ss"),
+    formattedDate: item.date ? format(item.date, "HH:mm:ss") : "Invalid Date",
   }));
+};
 
 export function Chart({ data }: { data: dataType[] }) {
   const chartConfig = {
@@ -64,21 +65,8 @@ export function Chart({ data }: { data: dataType[] }) {
               stroke={chartConfig.adc.color}
               strokeWidth={2}
               dot={false}
+              isAnimationActive={false}
             />
-            <Line
-              dataKey="voltage"
-              type="linear"
-              stroke={chartConfig.voltage.color}
-              strokeWidth={2}
-              dot={false}
-            />
-            {/* <Line
-                dataKey="resistance"
-                type="monotone"
-                stroke={chartConfig.resistance.color}
-                strokeWidth={2}
-                dot={false}
-              /> */}
           </LineChart>
         </ChartContainer>
       </CardContent>
